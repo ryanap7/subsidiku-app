@@ -1,0 +1,28 @@
+import { RegisterForm } from "@/types/stores/auth";
+
+export const DefaultForm: RegisterForm = {
+  nationalId: "",
+  fullName: "",
+  birthPlace: "",
+  birthDate: "",
+  gender: "",
+  phone: "",
+  address: "",
+  rtRw: "",
+  village: "",
+  district: "",
+  religion: "",
+  maritalStatus: "",
+  occupation: "",
+  nationality: "Indonesia",
+  password: "",
+  confirmPassword: "",
+  income: "",
+  landArea: "",
+  familiyMembers: "",
+  homeOwnership: "",
+  kjsNumber: "",
+  haveBankAccount: "",
+  subsidies: [],
+  suspensionNotes: null,
+};
