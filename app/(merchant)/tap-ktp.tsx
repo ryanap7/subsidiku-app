@@ -1,12 +1,4 @@
-import {
-  Button,
-  Gap,
-  Input,
-  KeyboardAvoiding,
-  SafeAreaView,
-  Select,
-  Text,
-} from "@/components";
+import { BottomSheet, Button, Gap, Input, Select, Text } from "@/components";
 import { getRecipientById } from "@/services/recipientServices";
 import { createTransaction } from "@/services/transactionService";
 import { useMerchantStore } from "@/stores/merchantStore";
@@ -14,22 +6,10 @@ import { useProductStore } from "@/stores/productStore";
 import { useRecipientStore } from "@/stores/recipientStore";
 import { borderRadius, colors, spacing } from "@/themes";
 import { GlobalStyles } from "@/themes/common";
-import { parseKTPText } from "@/utils/ktpParser";
-import { showToast } from "@/utils/showToast";
 import { Ionicons } from "@expo/vector-icons";
-import { useCameraPermissions } from "expo-camera";
-import { Image } from "expo-image";
-import {
-  CameraType,
-  launchCameraAsync,
-  launchImageLibraryAsync,
-  PermissionStatus,
-  requestCameraPermissionsAsync,
-  requestMediaLibraryPermissionsAsync,
-} from "expo-image-picker";
 import { router } from "expo-router";
-import { extractTextFromImage, isSupported } from "expo-text-extractor";
-import React, { useCallback, useEffect, useState } from "react";
+import LottieView from "lottie-react-native";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -37,18 +17,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const RedeemWithKTPScreen = () => {
+const TapKTPScreen = () => {
+  const ref = useRef<BottomSheet | null>(null);
+
+  const { products } = useProductStore();
   const { merchant: store } = useMerchantStore();
   const { recipient, setRecipient } = useRecipientStore();
-  const { products } = useProductStore();
-
-  const [imageUri, setImageUri] = useState<string>();
-  const [cameraPermission, setCameraPermission] =
-    useState<PermissionStatus | null>(null);
-  const [galleryPermission, setGalleryPermission] =
-    useState<PermissionStatus | null>(null);
-  const [permission, requestPermission] = useCameraPermissions();
 
   const [result, setResult] = useState<null | {
     name: string;
@@ -62,6 +38,7 @@ const RedeemWithKTPScreen = () => {
     amount: "",
     paymentMethod: "",
   });
+
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,6 +66,44 @@ const RedeemWithKTPScreen = () => {
 
     return err;
   };
+
+  const handleSearch = useCallback(async () => {
+    setResult(null);
+    setForm((prev) => ({
+      ...prev,
+      amount: "",
+      paymentMethod: "",
+      type: "",
+    }));
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const response = await getRecipientById("3214100312890002");
+
+      const { data } = response;
+
+      const quotaGas =
+        data.subsidies.find(
+          (s: any) => s.product?.name?.toLowerCase() === "gas lpg"
+        )?.remainingQuota ?? 0;
+
+      const quotaFertilizer =
+        data.subsidies.find(
+          (s: any) => s.product?.name?.toLowerCase() === "pupuk"
+        )?.remainingQuota ?? 0;
+
+      if (response) {
+        setResult({
+          nationalId: data.nik,
+          name: data.name,
+          quotaFertilizer,
+          quotaGas,
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
 
   const handleSubmit = async () => {
     const check = validate();
@@ -151,137 +166,6 @@ const RedeemWithKTPScreen = () => {
     }
   };
 
-  const processImage = async (path?: string) => {
-    if (!path) return;
-
-    setImageUri(path);
-
-    if (isSupported) {
-      try {
-        const extractedTexts = await extractTextFromImage(path);
-
-        const parsed = parseKTPText(extractedTexts);
-
-        return parsed.nationalId;
-      } catch (error) {
-        if (error instanceof Error)
-          showToast("error", "Text Extraction Error", error?.message);
-      }
-    } else {
-      showToast(
-        "error",
-        "Not Supported",
-        "Text extraction is not supported on this device"
-      );
-    }
-  };
-
-  const handleImagePick = async () => {
-    try {
-      if (galleryPermission !== PermissionStatus.GRANTED) {
-        const { status } = await requestMediaLibraryPermissionsAsync();
-        setGalleryPermission(status);
-        if (status !== PermissionStatus.GRANTED) return;
-      }
-
-      const result = await launchImageLibraryAsync({
-        mediaTypes: ["images"],
-      });
-
-      if (!result.canceled) {
-        const path = result.assets?.at(0)?.uri;
-        const nationalId = await processImage(path);
-
-        if (nationalId) {
-          const response = await getRecipientById(nationalId.toString());
-
-          const { data } = response;
-
-          const quotaGas =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "gas lpg"
-            )?.remainingQuota ?? 0;
-
-          const quotaFertilizer =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "pupuk"
-            )?.remainingQuota ?? 0;
-
-          if (response) {
-            setResult({
-              nationalId: data.nik,
-              name: data.name,
-              quotaFertilizer,
-              quotaGas,
-            });
-          }
-        } else {
-          showToast("error", "Gagal", "KTP tidak valid");
-        }
-      }
-    } catch (error) {
-      if (error instanceof Error)
-        showToast("error", "Image Pick Error", error.message);
-    }
-  };
-
-  const handleCameraCapture = async () => {
-    try {
-      if (cameraPermission !== PermissionStatus.GRANTED) {
-        const { status } = await requestCameraPermissionsAsync();
-        setCameraPermission(status);
-        if (status !== PermissionStatus.GRANTED) return;
-      }
-
-      const result = await launchCameraAsync({
-        mediaTypes: ["images"],
-        cameraType: CameraType.back,
-      });
-
-      if (!result.canceled) {
-        const path = result.assets?.at(0)?.uri;
-        const nationalId = "3214100312890002";
-
-        setImageUri(path);
-
-        if (nationalId) {
-          const response = await getRecipientById(nationalId);
-
-          const { data } = response;
-
-          const quotaGas =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "gas lpg"
-            )?.remainingQuota ?? 0;
-
-          const quotaFertilizer =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "pupuk"
-            )?.remainingQuota ?? 0;
-
-          if (response) {
-            setResult({
-              nationalId: data.nik,
-              name: data.name,
-              quotaFertilizer,
-              quotaGas,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      if (error instanceof Error)
-        showToast("error", "Camera Error", error.message);
-    }
-  };
-
-  useEffect(() => {
-    if (permission?.status !== "granted") {
-      requestPermission();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const PRICES = products.reduce((acc, item) => {
     const key = item.name.toLowerCase().includes("gas") ? "Gas" : "Pupuk";
     acc[key] = item.price;
@@ -294,8 +178,8 @@ const RedeemWithKTPScreen = () => {
     form.type === "Pupuk" ? result?.quotaFertilizer : result?.quotaGas;
 
   return (
-    <SafeAreaView>
-      <KeyboardAvoiding>
+    <>
+      <SafeAreaView>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} />
@@ -305,37 +189,22 @@ const RedeemWithKTPScreen = () => {
         <ScrollView>
           <View style={styles.container}>
             <Text type="semibold" size="xl">
-              Scan KTP Penerima
+              Tap KTP
             </Text>
             <Gap vertical={4} />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.imagePicker}
-              onPress={handleCameraCapture}
-            >
-              {imageUri ? (
-                <Image
-                  source={{ uri: imageUri }}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: borderRadius["2xl"],
-                  }}
-                  contentFit="cover"
-                />
-              ) : (
-                <>
-                  <Ionicons name="camera-outline" size={46} />
-                  <Gap vertical={2} />
-                  <Text type="regular" size="md">
-                    Unggah Foto KTP
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <Button
+              title="Mulai Tap KTP"
+              onPress={() => {
+                ref.current?.show();
+                setTimeout(() => {
+                  handleSearch();
+                  ref.current?.hide();
+                }, 5000);
+              }}
+            />
 
-            {result && (
+            {result ? (
               <>
                 <Gap vertical={6} />
                 <View style={styles.card}>
@@ -410,29 +279,34 @@ const RedeemWithKTPScreen = () => {
                   loading={isSubmitting}
                   onPress={handleSubmit}
                 />
-                <Gap vertical={2} />
-                <Button
-                  title="Scan Lagi"
-                  variant="secondary"
-                  onPress={() => {
-                    setResult(null);
-                    setImageUri("");
-                    setRecipient(null);
-                    setForm({ type: "", amount: "", paymentMethod: "" });
-                    setErrors({});
-                    setSubmitted(false);
-                  }}
-                />
               </>
-            )}
+            ) : null}
           </View>
         </ScrollView>
-      </KeyboardAvoiding>
-    </SafeAreaView>
+      </SafeAreaView>
+
+      {/* BottomSheet */}
+      <BottomSheet ref={ref} type="content">
+        <View style={GlobalStyles.center}>
+          <Text type="semibold" size="2xl">
+            Ready to Scan
+          </Text>
+          <Gap vertical={2} />
+          <Text size="md">Tempelkan KTP ke area NFC Ponsel</Text>
+          <Gap vertical={4} />
+          <LottieView
+            source={require("@/assets/animations/scan.json")}
+            autoPlay
+            loop
+            style={styles.illustration}
+          />
+        </View>
+      </BottomSheet>
+    </>
   );
 };
 
-export default RedeemWithKTPScreen;
+export default TapKTPScreen;
 
 const styles = StyleSheet.create({
   header: {
@@ -443,13 +317,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingBottom: spacing[10],
   },
-  scannerBox: {
-    marginTop: spacing[4],
-    height: 300,
-    borderRadius: borderRadius.md,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: colors.primary[500],
+  illustration: {
+    width: 200,
+    height: 200,
   },
   card: {
     padding: spacing[4],
@@ -457,13 +327,5 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.neutral[20],
-  },
-  imagePicker: {
-    width: "100%",
-    aspectRatio: 3 / 2,
-    backgroundColor: colors.base.white,
-    borderRadius: borderRadius["2xl"],
-    overflow: "hidden",
-    ...GlobalStyles.center,
   },
 });

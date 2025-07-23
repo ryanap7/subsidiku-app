@@ -1,5 +1,5 @@
-// app/(merchant)/user-request.tsx
 import {
+  BottomSheet,
   Button,
   DatePicker,
   Gap,
@@ -28,11 +28,44 @@ import {
 } from "expo-image-picker";
 import { router } from "expo-router";
 import { extractTextFromImage, isSupported } from "expo-text-extractor";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import LottieView from "lottie-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
 const DATA = [
+  {
+    nationalId: "3214100312890002",
+    fullName: "Ahmad Syaripudin",
+    birthPlace: "PURWAKARTA",
+    birthDate: "1989-12-03",
+    gender: "LAKI-LAKI",
+    phone: "",
+    address: "KP TANJUNGKERTA",
+    rtRw: "005/002",
+    village: "CIHERANG",
+    district: "PESAWAHA",
+    religion: "Islam",
+    maritalStatus: "Kawin",
+    occupation: "PELAJAR/MAHASISWA",
+    nationality: "Indonesia",
+    password: "",
+    confirmPassword: "",
+    income: "",
+    landArea: "",
+    familiyMembers: "",
+    homeOwnership: "",
+    kjsNumber: "",
+    haveBankAccount: "",
+    subsidies: ["00001", "00002"],
+    suspensionNotes: null,
+  },
   {
     nationalId: "3471140209790001",
     fullName: "RIYANTO, SE",
@@ -116,6 +149,8 @@ const DATA = [
 const UserRequestScreen = () => {
   const { merchant } = useMerchantStore();
   const [form, setForm] = useState(DefaultForm);
+
+  const ref = useRef<BottomSheet | null>(null);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -289,6 +324,17 @@ const UserRequestScreen = () => {
     }
   };
 
+  const handleSearch = useCallback(async () => {
+    try {
+      const found = DATA.find((item) => item.nationalId === "3214100312890002");
+      if (found) {
+        setForm((prev) => ({ ...prev, ...found }));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
+
   const isValid = useMemo(() => {
     const check = validate(form);
     return Object.keys(check).length === 0;
@@ -352,253 +398,291 @@ const UserRequestScreen = () => {
   }, []);
 
   return (
-    <SafeAreaView>
-      <KeyboardAvoiding>
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} />
-          </TouchableOpacity>
-        </View>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Text type="semibold" size="2xl" style={GlobalStyles.center}>
-            Ajukan Subsidi untuk Warga
-          </Text>
-          <Gap vertical={8} />
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.imagePicker}
-            onPress={handleCameraCapture}
+    <>
+      <SafeAreaView>
+        <KeyboardAvoiding>
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {imageUri ? (
-              <Image
-                source={{ uri: imageUri }}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: borderRadius["2xl"],
+            <Text type="semibold" size="2xl" style={GlobalStyles.center}>
+              Ajukan Subsidi untuk Warga
+            </Text>
+            <Gap vertical={8} />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.imagePicker}
+              onPress={handleCameraCapture}
+            >
+              {imageUri ? (
+                <Image
+                  source={{ uri: imageUri }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: borderRadius["2xl"],
+                  }}
+                  contentFit="cover"
+                />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={46} />
+                  <Gap vertical={2} />
+                  <Text type="regular" size="md">
+                    Unggah Foto KTP
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <Gap vertical={8} />
+            <View style={GlobalStyles.rowCenter}>
+              <Input
+                placeholder="Masukkan NIK"
+                keyboardType="numeric"
+                value={form.nationalId}
+                onChangeText={(v) => {
+                  handleChange("nationalId", v);
+                  handleAutoFillByNIK(v);
                 }}
-                contentFit="cover"
+                error={submitted ? errors.nationalId : undefined}
+                containerStyle={GlobalStyles.flex}
               />
-            ) : (
-              <>
-                <Ionicons name="camera-outline" size={46} />
-                <Gap vertical={2} />
-                <Text type="regular" size="md">
-                  Unggah Foto KTP
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-          <Gap vertical={8} />
-          <Input
-            placeholder="NIK"
-            value={form.nationalId}
-            onChangeText={(v) => {
-              handleChange("nationalId", v);
-              handleAutoFillByNIK(v);
-            }}
-            error={submitted ? errors.nationalId : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Nama Lengkap"
-            value={form.fullName}
-            onChangeText={(v) => handleChange("fullName", v)}
-            error={submitted ? errors.fullName : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Tempat Lahir"
-            value={form.birthPlace}
-            onChangeText={(v) => handleChange("birthPlace", v)}
-            error={submitted ? errors.birthPlace : undefined}
-          />
-          <Gap vertical={4} />
-          <DatePicker
-            placeholder="Tanggal Lahir"
-            value={form.birthDate}
-            onChangeText={(v) => handleChange("birthDate", v)}
-            error={submitted ? errors.birthDate : undefined}
-          />
-          <Gap vertical={4} />
-          <Select
-            placeholder="Jenis Kelamin"
-            value={form.gender}
-            onChange={(v) => handleChange("gender", v.value)}
-            options={[
-              { label: "Laki-laki", value: "L" },
-              { label: "Perempuan", value: "P" },
-            ]}
-            error={submitted ? errors.gender : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Nomor Handphone"
-            keyboardType="phone-pad"
-            value={form.phone}
-            onChangeText={(v) => handleChange("phone", v)}
-            error={submitted ? errors.phone : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Alamat"
-            value={form.address}
-            onChangeText={(v) => handleChange("address", v)}
-            error={submitted ? errors.address : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="RT / RW"
-            value={form.rtRw}
-            onChangeText={(v) => handleChange("rtRw", v)}
-            error={submitted ? errors.rtRw : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Kelurahan / Desa"
-            value={form.village}
-            onChangeText={(v) => handleChange("village", v)}
-            error={submitted ? errors.village : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Kecamatan"
-            value={form.district}
-            onChangeText={(v) => handleChange("district", v)}
-            error={submitted ? errors.district : undefined}
-          />
-          <Gap vertical={4} />
-          <Select
-            placeholder="Agama"
-            value={form.religion}
-            onChange={(v) => handleChange("religion", v.value)}
-            options={[
-              { label: "Islam", value: "Islam" },
-              { label: "Kristen", value: "Kristen" },
-              { label: "Katolik", value: "Katolik" },
-              { label: "Hindu", value: "Hindu" },
-              { label: "Buddha", value: "Buddha" },
-              { label: "Konghucu", value: "Konghucu" },
-            ]}
-            error={submitted ? errors.religion : undefined}
-          />
-          <Gap vertical={4} />
-          <Select
-            placeholder="Status Perkawinan"
-            value={form.maritalStatus}
-            onChange={(v) => handleChange("maritalStatus", v.value)}
-            options={[
-              { label: "Belum Kawin", value: "Belum Kawin" },
-              { label: "Kawin", value: "Kawin" },
-              { label: "Cerai", value: "Cerai" },
-            ]}
-            error={submitted ? errors.maritalStatus : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Pekerjaan"
-            value={form.occupation}
-            onChangeText={(v) => handleChange("occupation", v)}
-            error={submitted ? errors.occupation : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Kewarganegaraan"
-            value={form.nationality}
-            onChangeText={(v) => handleChange("nationality", v)}
-            disabled
-            error={submitted ? errors.nationality : undefined}
-          />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Penghasilan (Rp)"
-            keyboardType="number-pad"
-            value={form.income.toString()}
-            onChangeText={(v) => handleChange("income", v)}
-            error={submitted ? errors.income : undefined}
-          />
+              <Gap horizontal={4} />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.button}
+                onPress={() => {
+                  ref.current?.show();
+                  setTimeout(() => {
+                    handleSearch();
+                    ref.current?.hide();
+                  }, 5000);
+                }}
+              >
+                <Ionicons name="search" size={24} color={colors.base.white} />
+              </TouchableOpacity>
+            </View>
+            <Gap vertical={4} />
+            <Input
+              placeholder="Nama Lengkap"
+              value={form.fullName}
+              onChangeText={(v) => handleChange("fullName", v)}
+              error={submitted ? errors.fullName : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Tempat Lahir"
+              value={form.birthPlace}
+              onChangeText={(v) => handleChange("birthPlace", v)}
+              error={submitted ? errors.birthPlace : undefined}
+            />
+            <Gap vertical={4} />
+            <DatePicker
+              placeholder="Tanggal Lahir"
+              value={form.birthDate}
+              onChangeText={(v) => handleChange("birthDate", v)}
+              error={submitted ? errors.birthDate : undefined}
+            />
+            <Gap vertical={4} />
+            <Select
+              placeholder="Jenis Kelamin"
+              value={form.gender}
+              onChange={(v) => handleChange("gender", v.value)}
+              options={[
+                { label: "Laki-laki", value: "L" },
+                { label: "Perempuan", value: "P" },
+              ]}
+              error={submitted ? errors.gender : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Nomor Handphone"
+              keyboardType="phone-pad"
+              value={form.phone}
+              onChangeText={(v) => handleChange("phone", v)}
+              error={submitted ? errors.phone : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Alamat"
+              value={form.address}
+              onChangeText={(v) => handleChange("address", v)}
+              error={submitted ? errors.address : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="RT / RW"
+              value={form.rtRw}
+              onChangeText={(v) => handleChange("rtRw", v)}
+              error={submitted ? errors.rtRw : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Kelurahan / Desa"
+              value={form.village}
+              onChangeText={(v) => handleChange("village", v)}
+              error={submitted ? errors.village : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Kecamatan"
+              value={form.district}
+              onChangeText={(v) => handleChange("district", v)}
+              error={submitted ? errors.district : undefined}
+            />
+            <Gap vertical={4} />
+            <Select
+              placeholder="Agama"
+              value={form.religion}
+              onChange={(v) => handleChange("religion", v.value)}
+              options={[
+                { label: "Islam", value: "Islam" },
+                { label: "Kristen", value: "Kristen" },
+                { label: "Katolik", value: "Katolik" },
+                { label: "Hindu", value: "Hindu" },
+                { label: "Buddha", value: "Buddha" },
+                { label: "Konghucu", value: "Konghucu" },
+              ]}
+              error={submitted ? errors.religion : undefined}
+            />
+            <Gap vertical={4} />
+            <Select
+              placeholder="Status Perkawinan"
+              value={form.maritalStatus}
+              onChange={(v) => handleChange("maritalStatus", v.value)}
+              options={[
+                { label: "Belum Kawin", value: "Belum Kawin" },
+                { label: "Kawin", value: "Kawin" },
+                { label: "Cerai", value: "Cerai" },
+              ]}
+              error={submitted ? errors.maritalStatus : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Pekerjaan"
+              value={form.occupation}
+              onChangeText={(v) => handleChange("occupation", v)}
+              error={submitted ? errors.occupation : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Kewarganegaraan"
+              value={form.nationality}
+              onChangeText={(v) => handleChange("nationality", v)}
+              disabled
+              error={submitted ? errors.nationality : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Penghasilan (Rp)"
+              keyboardType="number-pad"
+              value={form.income.toString()}
+              onChangeText={(v) => handleChange("income", v)}
+              error={submitted ? errors.income : undefined}
+            />
 
-          <Gap vertical={4} />
-          <Input
-            placeholder="Jumlah Anggota Keluarga"
-            keyboardType="number-pad"
-            value={form.familiyMembers.toString()}
-            onChangeText={(v) => handleChange("familiyMembers", v)}
-            error={submitted ? errors.familiyMembers : undefined}
-          />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Jumlah Anggota Keluarga"
+              keyboardType="number-pad"
+              value={form.familiyMembers.toString()}
+              onChangeText={(v) => handleChange("familiyMembers", v)}
+              error={submitted ? errors.familiyMembers : undefined}
+            />
 
-          <Gap vertical={4} />
-          <Input
-            placeholder="Luas Tanah (m²)"
-            keyboardType="number-pad"
-            value={form.landArea.toString()}
-            onChangeText={(v) => handleChange("landArea", v)}
-            error={submitted ? errors.landArea : undefined}
-          />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Luas Tanah (m²)"
+              keyboardType="number-pad"
+              value={form.landArea.toString()}
+              onChangeText={(v) => handleChange("landArea", v)}
+              error={submitted ? errors.landArea : undefined}
+            />
 
-          <Gap vertical={4} />
-          <Select
-            placeholder="Status Kepemilikan Rumah"
-            value={form.homeOwnership}
-            onChange={(v) => handleChange("homeOwnership", v.value)}
-            options={[
-              { label: "Milik Sendiri", value: "Milik Sendiri" },
-              { label: "Sewa", value: "Sewa" },
-              { label: "Menumpang", value: "Menumpang" },
-            ]}
-            error={submitted ? errors.homeOwnership : undefined}
-          />
+            <Gap vertical={4} />
+            <Select
+              placeholder="Status Kepemilikan Rumah"
+              value={form.homeOwnership}
+              onChange={(v) => handleChange("homeOwnership", v.value)}
+              options={[
+                { label: "Milik Sendiri", value: "Milik Sendiri" },
+                { label: "Sewa", value: "Sewa" },
+                { label: "Menumpang", value: "Menumpang" },
+              ]}
+              error={submitted ? errors.homeOwnership : undefined}
+            />
 
-          <Gap vertical={4} />
-          <Input
-            placeholder="Nomor KJS"
-            value={form.kjsNumber}
-            onChangeText={(v) => handleChange("kjsNumber", v)}
-            error={submitted ? errors.kjsNumber : undefined}
-          />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Nomor KJS"
+              value={form.kjsNumber}
+              onChangeText={(v) => handleChange("kjsNumber", v)}
+              error={submitted ? errors.kjsNumber : undefined}
+            />
 
-          <Gap vertical={4} />
-          <Select
-            placeholder="Punya Rekening Bank?"
-            value={form.haveBankAccount ? "Ya" : "Tidak"}
-            onChange={(v) => handleChange("haveBankAccount", v.value)}
-            options={[
-              { label: "Ya", value: "Ya" },
-              { label: "Tidak", value: "Tidak" },
-            ]}
-          />
+            <Gap vertical={4} />
+            <Select
+              placeholder="Punya Rekening Bank?"
+              value={form.haveBankAccount ? "Ya" : "Tidak"}
+              onChange={(v) => handleChange("haveBankAccount", v.value)}
+              options={[
+                { label: "Ya", value: "Ya" },
+                { label: "Tidak", value: "Tidak" },
+              ]}
+            />
 
+            <Gap vertical={4} />
+            <Input
+              placeholder="Kata Sandi"
+              secureTextEntry
+              value={form.password}
+              onChangeText={(v) => handleChange("password", v)}
+              error={submitted ? errors.password : undefined}
+            />
+            <Gap vertical={4} />
+            <Input
+              placeholder="Konfirmasi Kata Sandi"
+              secureTextEntry
+              value={form.confirmPassword}
+              onChangeText={(v) => handleChange("confirmPassword", v)}
+              error={submitted ? errors.confirmPassword : undefined}
+            />
+            <Gap vertical={8} />
+            <Button
+              title="Ajukan"
+              loading={isSubmitting}
+              onPress={handleSubmit}
+              disabled={!isValid}
+            />
+            <Gap vertical={10} />
+          </ScrollView>
+        </KeyboardAvoiding>
+      </SafeAreaView>
+
+      {/* BottomSheet */}
+      <BottomSheet ref={ref} type="content">
+        <View style={GlobalStyles.center}>
+          <Text type="semibold" size="2xl">
+            Ready to Scan
+          </Text>
+          <Gap vertical={2} />
+          <Text size="md">Tempelkan KTP ke area NFC Ponsel</Text>
           <Gap vertical={4} />
-          <Input
-            placeholder="Kata Sandi"
-            secureTextEntry
-            value={form.password}
-            onChangeText={(v) => handleChange("password", v)}
-            error={submitted ? errors.password : undefined}
+          <LottieView
+            source={require("@/assets/animations/scan.json")}
+            autoPlay
+            loop
+            style={styles.illustration}
           />
-          <Gap vertical={4} />
-          <Input
-            placeholder="Konfirmasi Kata Sandi"
-            secureTextEntry
-            value={form.confirmPassword}
-            onChangeText={(v) => handleChange("confirmPassword", v)}
-            error={submitted ? errors.confirmPassword : undefined}
-          />
-          <Gap vertical={8} />
-          <Button
-            title="Ajukan"
-            loading={isSubmitting}
-            onPress={handleSubmit}
-            disabled={!isValid}
-          />
-          <Gap vertical={10} />
-        </ScrollView>
-      </KeyboardAvoiding>
-    </SafeAreaView>
+        </View>
+      </BottomSheet>
+    </>
   );
 };
 
@@ -618,5 +702,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.base.white,
     borderRadius: borderRadius["2xl"],
     ...GlobalStyles.center,
+  },
+  button: {
+    backgroundColor: colors.neutral[90],
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.xl,
+    ...GlobalStyles.center,
+  },
+  illustration: {
+    width: 200,
+    height: 200,
   },
 });

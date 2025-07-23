@@ -73,19 +73,12 @@ const Merchant = () => {
         </Text>
         <Gap vertical={3} />
         <Button
-          title="Scan QR Code Pengguna"
+          variant="secondary"
+          title="Transaksi Subsidi"
           onPress={() => {
-            router.push("/(merchant)/redeem");
+            router.push("/(merchant)/transactions");
           }}
         />
-        <Gap vertical={3} />
-        <Button
-          title="Scan KTP Pengguna"
-          onPress={() => {
-            router.push("/(merchant)/redeem-ktp");
-          }}
-        />
-
         <Gap vertical={3} />
         <Button
           variant="secondary"

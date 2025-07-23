@@ -3,6 +3,7 @@ import {
   Gap,
   Input,
   KeyboardAvoiding,
+  Loader,
   SafeAreaView,
   Select,
   Text,
@@ -14,22 +15,9 @@ import { useProductStore } from "@/stores/productStore";
 import { useRecipientStore } from "@/stores/recipientStore";
 import { borderRadius, colors, spacing } from "@/themes";
 import { GlobalStyles } from "@/themes/common";
-import { parseKTPText } from "@/utils/ktpParser";
-import { showToast } from "@/utils/showToast";
 import { Ionicons } from "@expo/vector-icons";
-import { useCameraPermissions } from "expo-camera";
-import { Image } from "expo-image";
-import {
-  CameraType,
-  launchCameraAsync,
-  launchImageLibraryAsync,
-  PermissionStatus,
-  requestCameraPermissionsAsync,
-  requestMediaLibraryPermissionsAsync,
-} from "expo-image-picker";
 import { router } from "expo-router";
-import { extractTextFromImage, isSupported } from "expo-text-extractor";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -43,13 +31,6 @@ const RedeemWithKTPScreen = () => {
   const { recipient, setRecipient } = useRecipientStore();
   const { products } = useProductStore();
 
-  const [imageUri, setImageUri] = useState<string>();
-  const [cameraPermission, setCameraPermission] =
-    useState<PermissionStatus | null>(null);
-  const [galleryPermission, setGalleryPermission] =
-    useState<PermissionStatus | null>(null);
-  const [permission, requestPermission] = useCameraPermissions();
-
   const [result, setResult] = useState<null | {
     name: string;
     nationalId: string;
@@ -58,6 +39,7 @@ const RedeemWithKTPScreen = () => {
   }>(null);
 
   const [form, setForm] = useState({
+    nationalId: "",
     type: "",
     amount: "",
     paymentMethod: "",
@@ -65,6 +47,8 @@ const RedeemWithKTPScreen = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = useCallback((key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -151,136 +135,47 @@ const RedeemWithKTPScreen = () => {
     }
   };
 
-  const processImage = async (path?: string) => {
-    if (!path) return;
+  const handleSearch = useCallback(async () => {
+    setIsLoading(true);
 
-    setImageUri(path);
-
-    if (isSupported) {
-      try {
-        const extractedTexts = await extractTextFromImage(path);
-
-        const parsed = parseKTPText(extractedTexts);
-
-        return parsed.nationalId;
-      } catch (error) {
-        if (error instanceof Error)
-          showToast("error", "Text Extraction Error", error?.message);
-      }
-    } else {
-      showToast(
-        "error",
-        "Not Supported",
-        "Text extraction is not supported on this device"
-      );
-    }
-  };
-
-  const handleImagePick = async () => {
+    setResult(null);
+    setForm((prev) => ({
+      ...prev,
+      amount: "",
+      paymentMethod: "",
+      type: "",
+    }));
     try {
-      if (galleryPermission !== PermissionStatus.GRANTED) {
-        const { status } = await requestMediaLibraryPermissionsAsync();
-        setGalleryPermission(status);
-        if (status !== PermissionStatus.GRANTED) return;
-      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const result = await launchImageLibraryAsync({
-        mediaTypes: ["images"],
-      });
+      const response = await getRecipientById(form.nationalId);
 
-      if (!result.canceled) {
-        const path = result.assets?.at(0)?.uri;
-        const nationalId = await processImage(path);
+      const { data } = response;
 
-        if (nationalId) {
-          const response = await getRecipientById(nationalId.toString());
+      const quotaGas =
+        data.subsidies.find(
+          (s: any) => s.product?.name?.toLowerCase() === "gas lpg"
+        )?.remainingQuota ?? 0;
 
-          const { data } = response;
+      const quotaFertilizer =
+        data.subsidies.find(
+          (s: any) => s.product?.name?.toLowerCase() === "pupuk"
+        )?.remainingQuota ?? 0;
 
-          const quotaGas =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "gas lpg"
-            )?.remainingQuota ?? 0;
-
-          const quotaFertilizer =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "pupuk"
-            )?.remainingQuota ?? 0;
-
-          if (response) {
-            setResult({
-              nationalId: data.nik,
-              name: data.name,
-              quotaFertilizer,
-              quotaGas,
-            });
-          }
-        } else {
-          showToast("error", "Gagal", "KTP tidak valid");
-        }
+      if (response) {
+        setResult({
+          nationalId: data.nik,
+          name: data.name,
+          quotaFertilizer,
+          quotaGas,
+        });
       }
     } catch (error) {
-      if (error instanceof Error)
-        showToast("error", "Image Pick Error", error.message);
+      console.log(error);
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handleCameraCapture = async () => {
-    try {
-      if (cameraPermission !== PermissionStatus.GRANTED) {
-        const { status } = await requestCameraPermissionsAsync();
-        setCameraPermission(status);
-        if (status !== PermissionStatus.GRANTED) return;
-      }
-
-      const result = await launchCameraAsync({
-        mediaTypes: ["images"],
-        cameraType: CameraType.back,
-      });
-
-      if (!result.canceled) {
-        const path = result.assets?.at(0)?.uri;
-        const nationalId = "3214100312890002";
-
-        setImageUri(path);
-
-        if (nationalId) {
-          const response = await getRecipientById(nationalId);
-
-          const { data } = response;
-
-          const quotaGas =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "gas lpg"
-            )?.remainingQuota ?? 0;
-
-          const quotaFertilizer =
-            data.subsidies.find(
-              (s: any) => s.product?.name?.toLowerCase() === "pupuk"
-            )?.remainingQuota ?? 0;
-
-          if (response) {
-            setResult({
-              nationalId: data.nik,
-              name: data.name,
-              quotaFertilizer,
-              quotaGas,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      if (error instanceof Error)
-        showToast("error", "Camera Error", error.message);
-    }
-  };
-
-  useEffect(() => {
-    if (permission?.status !== "granted") {
-      requestPermission();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [form.nationalId]);
 
   const PRICES = products.reduce((acc, item) => {
     const key = item.name.toLowerCase().includes("gas") ? "Gas" : "Pupuk";
@@ -305,37 +200,34 @@ const RedeemWithKTPScreen = () => {
         <ScrollView>
           <View style={styles.container}>
             <Text type="semibold" size="xl">
-              Scan KTP Penerima
+              Isi Manual
             </Text>
             <Gap vertical={4} />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.imagePicker}
-              onPress={handleCameraCapture}
-            >
-              {imageUri ? (
-                <Image
-                  source={{ uri: imageUri }}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: borderRadius["2xl"],
-                  }}
-                  contentFit="cover"
-                />
-              ) : (
-                <>
-                  <Ionicons name="camera-outline" size={46} />
-                  <Gap vertical={2} />
-                  <Text type="regular" size="md">
-                    Unggah Foto KTP
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <View style={GlobalStyles.rowCenter}>
+              <Input
+                placeholder="Masukkan NIK"
+                keyboardType="numeric"
+                value={form.nationalId}
+                onChangeText={(v) => handleChange("nationalId", v)}
+                error={submitted ? errors.nationalId : undefined}
+                containerStyle={GlobalStyles.flex}
+              />
+              <Gap horizontal={4} />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.button}
+                onPress={handleSearch}
+              >
+                <Ionicons name="search" size={24} color={colors.base.white} />
+              </TouchableOpacity>
+            </View>
 
-            {result && (
+            {isLoading ? (
+              <View style={[GlobalStyles.center, { paddingTop: "65%" }]}>
+                <Loader />
+              </View>
+            ) : result ? (
               <>
                 <Gap vertical={6} />
                 <View style={styles.card}>
@@ -410,21 +302,8 @@ const RedeemWithKTPScreen = () => {
                   loading={isSubmitting}
                   onPress={handleSubmit}
                 />
-                <Gap vertical={2} />
-                <Button
-                  title="Scan Lagi"
-                  variant="secondary"
-                  onPress={() => {
-                    setResult(null);
-                    setImageUri("");
-                    setRecipient(null);
-                    setForm({ type: "", amount: "", paymentMethod: "" });
-                    setErrors({});
-                    setSubmitted(false);
-                  }}
-                />
               </>
-            )}
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoiding>
@@ -443,14 +322,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingBottom: spacing[10],
   },
-  scannerBox: {
-    marginTop: spacing[4],
-    height: 300,
-    borderRadius: borderRadius.md,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: colors.primary[500],
-  },
   card: {
     padding: spacing[4],
     backgroundColor: colors.base.white,
@@ -458,12 +329,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.neutral[20],
   },
-  imagePicker: {
-    width: "100%",
-    aspectRatio: 3 / 2,
-    backgroundColor: colors.base.white,
-    borderRadius: borderRadius["2xl"],
-    overflow: "hidden",
+  button: {
+    backgroundColor: colors.neutral[90],
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.xl,
     ...GlobalStyles.center,
   },
 });
