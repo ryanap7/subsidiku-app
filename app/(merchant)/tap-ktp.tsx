@@ -78,7 +78,7 @@ const TapKTPScreen = () => {
     try {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const response = await getRecipientById("3214100312890002");
+      const response = await getRecipientById("3174054911910006");
 
       const { data } = response;
 
